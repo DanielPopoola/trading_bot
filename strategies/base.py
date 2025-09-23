@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any
+from decimal import Decimal
 
 
 class OrderStrategy(ABC):
@@ -20,7 +21,7 @@ class OrderStrategy(ABC):
         pass
 
     @abstractmethod
-    def prepare_order_data(self, symbol: str, side: str, quantity: float, **kwargs) -> Dict[str, Any]:
+    def prepare_order_data(self, symbol: str, side: str, quantity: Decimal, **kwargs) -> Dict[str, Any]:
         """
         Convert user input into Binance API format.
         

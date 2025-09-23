@@ -1,5 +1,6 @@
 from .base import OrderStrategy
 from typing import Any, Dict
+from decimal import Decimal
 
 
 class LimitOrderStrategy(OrderStrategy):
@@ -21,17 +22,19 @@ class LimitOrderStrategy(OrderStrategy):
         
         price = kwargs['price']
 
-        # Validate price is a positive number
-        try:
-            price = float(price)
-            if price <= 0:
-                raise ValueError("Price must be positive")
-        except (ValueError, TypeError):
-            raise ValueError("Price must be a valid positive number")
+        # Handle both Decimal and other types
+        if not isinstance(price, Decimal):
+            try:
+                price = Decimal(str(price))
+            except (ValueError, TypeError):
+                raise ValueError("Price must be a valid number")
+        
+        if price <= 0:
+            raise ValueError("Price must be positive")
         
         return {'price': price}
     
-    def prepare_order_data(self, symbol: str, side: str, quantity: float, **kwargs) -> Dict[str, Any]:
+    def prepare_order_data(self, symbol: str, side: str, quantity: Decimal, **kwargs) -> Dict[str, Any]:
         """
         Prepare limit order for Binance API.
         """
@@ -42,7 +45,7 @@ class LimitOrderStrategy(OrderStrategy):
             'side': side.upper(),
             'type': 'LIMIT',
             'quantity': quantity,
-            'price': validated_params['price'],
+            'price': str(validated_params['price']),
             'timeInForce': 'GTC',  # Good Till Cancel - stays active until filled or cancelled
         }
     

@@ -1,5 +1,6 @@
 from .base import OrderStrategy
 from typing import Any, Dict
+from decimal import Decimal
 
 
 class MarketOrderStrategy(OrderStrategy):
@@ -19,7 +20,7 @@ class MarketOrderStrategy(OrderStrategy):
         
         return {}
     
-    def prepare_order_data(self, symbol: str, side: str, quantity: float, **kwargs) -> Dict[str, Any]:
+    def prepare_order_data(self, symbol: str, side: str, quantity: Decimal, **kwargs) -> Dict[str, Any]:
         """
         Prepare the exact format Binance API expects for market orders.
         """
@@ -27,7 +28,7 @@ class MarketOrderStrategy(OrderStrategy):
             'symbol': symbol.upper(),
             'side': side.upper(),
             'type': 'MARKET',
-            'quantity': quantity
+            'quantity': str(quantity)
         }
     
     def get_order_type(self) -> str:
