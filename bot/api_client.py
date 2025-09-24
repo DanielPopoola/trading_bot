@@ -6,6 +6,10 @@ from binance.exceptions import BinanceAPIException, BinanceOrderException
 import time
 
 
+from .logger import ContextLogger, log_api_call, log_order_success, log_order_failure
+
+
+
 class APIError(Exception):
     """Base exception for API-related errors."""
     pass
@@ -37,7 +41,10 @@ class BinanceAPIClient:
             api_secret: Binance API secret
             testnet: Use testnet (True) or live trading (False)
         """
-        self.logger = logging.getLogger(__name__)
+        self.logger = ContextLogger('bot.api_client', {
+            'testnet': testnet,
+            'client_type': 'binance'
+        })
         self.testnet = testnet
         
         try:
@@ -92,11 +99,16 @@ class BinanceAPIClient:
             APIOrderError: Business logic errors (insufficient balance, etc.)
             APIConnectionError: Network/connectivity issues
         """
-        self.logger.info(f"Placing order: {order_data}")
+        start_time = time.time()
+        # Log the attempt
+        self.logger.info("Placing order", {
+            'symbol': order_data.get('symbol'),
+            'side': order_data.get('side'),
+            'type': order_data.get('type'),
+            'action': 'order_attempt'
+        })
 
         try:
-            start_time = time.time()
-
             # Place order
             if order_data['type'] == 'MARKET':
                 result = self.client.futures_create_order(**order_data)
@@ -107,17 +119,17 @@ class BinanceAPIClient:
             duration = time.time() - start_time
             
             # Log successful order
-            self.logger.info(
-                f"Order placed successfully. OrderId: {result.get('orderId')}, "
-                f"Duration: {duration:.2f}s"
-            )
+            log_api_call(self.logger, 'futures_create_order', 'POST', duration)
+            log_order_success(self.logger, self._standardize_order_response(result))
 
             # Return standardized response
             return self._standardize_order_response(result)
             
         except BinanceOrderException as e:
+            duration = time.time() - start_time 
             # These are business logic errors (insufficient balance, invalid symbol, etc.)
-            self.logger.error(f"Order failed - Business rule violation: {e}")
+            log_api_call(self.logger, 'futures_create_order', 'POST', duration)
+            log_order_failure(self.logger, e, order_data)
             raise APIOrderError(f"Order rejected: {e}")
             
         except BinanceAPIException as e:
@@ -136,8 +148,9 @@ class BinanceAPIClient:
                 raise APIOrderError(f"API error: {e}")
                 
         except Exception as e:
-            # Network or other unexpected errors
-            self.logger.error(f"Order failed - Unexpected error: {e}")
+            duration = time.time() - start_time
+            log_api_call(self.logger, 'futures_create_order', 'POST', duration)
+            log_order_failure(self.logger, e, order_data)
             raise APIConnectionError(f"Unexpected error during order placement: {e}")
         
     def get_account_balance(self) -> List[Dict[str, Any]]:
