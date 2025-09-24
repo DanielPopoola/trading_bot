@@ -58,10 +58,11 @@ class BinanceAPIClient:
             # Test the connection immediately
             self._test_connectivity()
             
-            self.logger.info(f"Binance client initialized (testnet: {testnet})")
+            self.logger.info("Binance client initialized")
             
         except Exception as e:
-            self.logger.error(f"Failed to initialize Binance client: {e}")
+            self.logger.error("Failed to initialize Binance client", 
+                              data={'error': str(e), 'error_type': type(e).__name__}, exc_info=True)
             raise APIAuthenticationError(f"Failed to initialize API client: {e}")
         
     def _test_connectivity(self) -> None:
@@ -100,13 +101,7 @@ class BinanceAPIClient:
             APIConnectionError: Network/connectivity issues
         """
         start_time = time.time()
-        # Log the attempt
-        self.logger.info("Placing order", {
-            'symbol': order_data.get('symbol'),
-            'side': order_data.get('side'),
-            'type': order_data.get('type'),
-            'action': 'order_attempt'
-        })
+        log_order_attempt(self.logger, **order_data)
 
         try:
             # Place order
@@ -133,18 +128,17 @@ class BinanceAPIClient:
             raise APIOrderError(f"Order rejected: {e}")
             
         except BinanceAPIException as e:
+            duration = time.time() - start_time
+            log_api_call(self.logger, 'futures_create_order', 'POST', duration)
+            log_order_failure(self.logger, e, order_data)
             # Categorize different API exceptions
             if e.code in [-1021, -1022]:
-                self.logger.error(f"Order failed - Timestamp issue: {e}")
                 raise APIConnectionError(f"Time synchronization issue: {e}")
             elif e.code == -2010:
-                self.logger.error(f"Order failed - Rejected: {e}")
                 raise APIOrderError(f"Order rejected by exchange: {e}")
             elif e.code == -5007:
-                self.logger.error(f"Order failed - Invalid quantity: {e}")
                 raise APIOrderError(f"Invalid order quantity: {e}")
             else:
-                self.logger.error(f"Order failed - API error: {e}")
                 raise APIOrderError(f"API error: {e}")
                 
         except Exception as e:
@@ -160,10 +154,12 @@ class BinanceAPIClient:
         Returns:
             List of balance information for each asset
         """
+        start_time = time.time()
+        self.logger.debug("Fetching account balance")
         try:
-            self.logger.debug("Fetching account balance")
-
             account_info = self.client.futures_account()
+            duration = time.time() - start_time
+            log_api_call(self.logger, 'futures_account', 'GET', duration)
 
             # Extract balance info
             balances = account_info.get('assets', [])
@@ -174,15 +170,14 @@ class BinanceAPIClient:
                 if Decimal(str(balance.get('walletBalance', 0) > 0))
             ]
 
-            self.logger.debug(f"Retrieved {len(non_zero_balances)} non-zero balances")
+            self.logger.debug(f"Retrieved {len(non_zero_balances)} non-zero balances", {'count': len(non_zero_balances)})
             return non_zero_balances
         
-        except BinanceAPIException as e:
-            self.logger.error(f"Failed to get account balance: {e}")
+        except (BinanceAPIException, Exception) as e:
+            duration = time.time() - start_time
+            log_api_call(self.logger, 'futures_account', 'GET', duration)
+            self.logger.error("Failed to get account balance", data={'error': str(e)}, exc_info=True)
             raise APIConnectionError(f"Failed to retrieve balance: {e}")
-        except Exception as e:
-            self.logger.error(f"Unexpected error getting balance: {e}")
-            raise APIConnectionError(f"Unexpected error: {e}")
         
     def get_exchange_info(self) -> Dict[str, Any]:
         """
@@ -190,20 +185,22 @@ class BinanceAPIClient:
         Returns:
             Exchange information including valid trading symbols
         """
+        start_time = time.time()
+        self.logger.debug("Fetching exchange information")
         try:
-            self.logger.debug("Fetching exchange information")
-
             exchange_info = self.client.futures_exchange_info()
+            duration = time.time() - start_time
+            log_api_call(self.logger, 'futures_exchange_info', 'GET', duration)
 
-            self.logger.debug(f"Retrieved info for {len(exchange_info.get('symbols', []))} symbols")
+            count = len(exchange_info.get('symbols', []))
+            self.logger.debug(f"Retrieved info for {count} symbols", {'count': count})
             return exchange_info
                 
-        except BinanceAPIException as e:
-            self.logger.error(f"Failed to get exchange info: {e}")
+        except (BinanceAPIException, Exception) as e:
+            duration = time.time() - start_time
+            log_api_call(self.logger, 'futures_exchange_info', 'GET', duration)
+            self.logger.error("Failed to get exchange info", data={'error': str(e)}, exc_info=True)
             raise APIConnectionError(f"Failed to retrieve exchange info: {e}")
-        except Exception as e:
-            self.logger.error(f"Unexpected error getting exchange info: {e}")
-            raise APIConnectionError(f"Unexpected error: {e}")
         
     def get_symbol_info(self, symbol: str) -> Optional[Dict[str, Any]]:
         """
@@ -225,7 +222,7 @@ class BinanceAPIClient:
             return None
             
         except Exception as e:
-            self.logger.error(f"Error getting symbol info for {symbol}: {e}")
+            self.logger.error(f"Error getting symbol info for {symbol}", data={'symbol': symbol, 'error': str(e)}, exc_info=True)
             raise APIConnectionError(f"Error retrieving symbol info: {e}")
         
     def _standardize_order_response(self, binance_response: Dict[str, Any]) -> Dict[str, Any]:

@@ -1,7 +1,7 @@
 import re
 from typing import Dict, Any, Optional, Set
 from decimal import Decimal, InvalidOperation, ROUND_DOWN
-import logging
+from .logger import ContextLogger
 
 class ValidationError(Exception):
     """Custom exception for validation errors."""
@@ -15,9 +15,9 @@ class InputValidator:
     
     def __init__(self, api_client=None):
         self.api_client = api_client
-        self.logger = logging.getLogger(__name__)
+        self.logger = ContextLogger('bot.validator')
         self._valid_symbols: Optional[Set[str]] = None
-        self._symbol_pattern = re.compile(r'^[A-Z0-9]{6,12}$')
+        self._symbol_pattern = re.compile(r'^[A-Z0-9]{6,12})
         
         # Decimal precision settings for financial calculations
         self.quantity_precision = 8
@@ -31,7 +31,12 @@ class InputValidator:
         Args:
             quantity: Can be float, string, or Decimal - we'll convert safely
         """
-        self.logger.info(f"Validating order: {symbol} {side} {quantity} {order_type}")
+        self.logger.info(f"Validating order: {symbol} {side} {quantity} {order_type}", {
+            'symbol': symbol,
+            'side': side,
+            'quantity': str(quantity),
+            'order_type': order_type
+        })
         
         validated_params = {
             'symbol': self._validate_symbol_format(symbol),
@@ -124,7 +129,7 @@ class InputValidator:
         )
         
         if rounded_quantity != decimal_quantity:
-            self.logger.info(f"Rounded quantity from {decimal_quantity} to {rounded_quantity}")
+            self.logger.info("Rounded quantity", {'from': str(decimal_quantity), 'to': str(rounded_quantity)})
         
         return rounded_quantity
     
@@ -202,10 +207,10 @@ class InputValidator:
                 if symbol['status'] == 'TRADING'
             }
             
-            self.logger.info(f"Loaded {len(self._valid_symbols)} valid symbols")
+            self.logger.info(f"Loaded {len(self._valid_symbols)} valid symbols", {'count': len(self._valid_symbols)})
             
         except Exception as e:
-            self.logger.error(f"Failed to load valid symbols: {e}")
+            self.logger.error("Failed to load valid symbols", data={'error': str(e), 'error_type': type}, exc_info=True)
             raise ValidationError(
                 f"Unable to validate symbol against Binance. "
                 f"Please check your internet connection. Error: {e}"
@@ -255,10 +260,10 @@ class InputValidator:
                     f"Available: {usdt_balance} USDT"
                 )
             
-            self.logger.info(f"Balance check passed. Available: {usdt_balance} USDT")
+            self.logger.info("Balance check passed", {'available': str(usdt_balance), 'required': str(required_balance)})
             
         except ValidationError:
             raise
         except Exception as e:
-            self.logger.error(f"Failed to check balance: {e}")
+            self.logger.error("Failed to check balance", data={'error': str(e)}, exc_info=True)
             raise ValidationError(f"Unable to verify balance: {e}")

@@ -2,6 +2,7 @@ import argparse
 import sys
 from typing import Any, Dict, Optional
 from strategies import OrderStrategyFactory
+from .logger import ContextLogger
 
 
 class TradingBotCLI:
@@ -11,6 +12,8 @@ class TradingBotCLI:
     
     def __init__(self) -> None:
         self.parser = self._create_parser()
+        self.logger = ContextLogger('bot.cli')
+        self.logger.info("CLI initialized")
 
     def _create_parser(self) -> argparse.ArgumentParser:
         """Create the command line argument parser."""
@@ -54,11 +57,14 @@ Examples:
             Dict with all trading parameters
         """
         args = self.parser.parse_args()
+        self.logger.info("Parsing arguments", {'args': vars(args)})
 
         # If no arguments provided or interactive flag set, use interactive mode
         if self._should_use_interactive_mode(args):
+            self.logger.info("Entering interactive mode")
             return self._interactive_mode()
         else:
+            self.logger.info("Entering batch mode")
             return self._batch_mode(args)
         
     def _should_use_interactive_mode(self, args) -> bool:
@@ -78,6 +84,7 @@ Examples:
         missing_params = [param for param in required_params if getattr(args, param) is None]
 
         if missing_params:
+            self.logger.error("Missing required parameters in batch mode", {'missing': missing_params})
             self.parser.error(f"Missing required parameters: {', '.join(missing_params)}")
 
         # Build parameters dict
@@ -121,9 +128,11 @@ Examples:
             return params
         
         except KeyboardInterrupt:
+            self.logger.warning("Operation cancelled by user (KeyboardInterrupt)")
             print("\n\nOperation cancelled by user.")
             sys.exit(0)
         except EOFError:
+            self.logger.error("Unexpected end of input (EOFError)")
             print("\n\nUnexpected end of input.")
             sys.exit(1)
 
@@ -199,8 +208,10 @@ Examples:
         while True:
             confirm = input("\nConfirm order? (y/n): ").strip().lower()
             if confirm in ['y', 'yes']:
+                self.logger.info("User confirmed order", {'params': params})
                 return True
             elif confirm in ['n', 'no']:
+                self.logger.warning("User cancelled order", {'params': params})
                 return False
             else:
                 print("Please enter 'y' for yes or 'n' for no.")

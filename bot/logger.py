@@ -20,7 +20,7 @@ class JSONFormatter(logging.Formatter):
 
         # Base log entry structure
         log_entry = {
-            'timestamp': datetime.utcnow().isoformat() + 'Z',
+            'timestamp': datetime.now().isoformat() + 'Z',
             'level': record.levelname,
             'logger': record.name,
             'message': record.getMessage(),

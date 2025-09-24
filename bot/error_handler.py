@@ -1,11 +1,11 @@
 import time
-import logging
 from typing import Callable, Any, Dict, Optional
 from functools import wraps
 from enum import Enum
 import random
 
 from .api_client import APIError, APIConnectionError, APIAuthenticationError, APIOrderError
+from .logger import ContextLogger, log_retry_attempt
 
 class ErrorCategory(Enum):
     """Categories of errors for different handling strategies."""
@@ -41,7 +41,7 @@ class ErrorHandler:
 
     def __init__(self, config: Optional[RetryConfig] = None):
         self.config = config or RetryConfig()
-        self.logger = logging.getLogger(__name__)
+        self.logger = ContextLogger('bot.error_handler')
 
     def with_retry(self, operation_name: str = "API operation"):
         """
@@ -75,12 +75,12 @@ class ErrorHandler:
 
         for attempt in range(self.config.max_retries + 1):
             try:
-                self.logger.info(f"Executing {operation_name}  (attempt {attempt + 1})")
+                self.logger.info(f"Executing {operation_name}", {'operation': operation_name, 'attempt': attempt + 1})
 
                 result = func(*args, *kwargs)
 
                 if attempt > 0:
-                    self.logger.info(f"{operation_name} succeeded after {attempt} retries")
+                    self.logger.info(f"{operation_name} succeeded after {attempt} retries", {'operation': operation_name, 'retries': attempt})
                 
                 return result
             
@@ -89,28 +89,43 @@ class ErrorHandler:
                 error_category = self._categorize_error(e)
 
                 self.logger.warning(
-                    f"{operation_name} failed on attempt {attempt + 1}: {e} "
-                    f"(category: {error_category.value})"
+                    f"{operation_name} failed on attempt {attempt + 1}",
+                    data={
+                        'operation': operation_name,
+                        'attempt': attempt + 1,
+                        'error': str(e),
+                        'error_type': type(e).__name__,
+                        'category': error_category.value
+                    }
                 )
 
                 # Check if we should retry
                 if not self._should_retry(error_category, attempt):
                     self.logger.error(
-                        f"{operation_name} failed permanently: {e} "
-                        f"(category: {error_category.value})"
+                        f"{operation_name} failed permanently",
+                        data={
+                            'operation': operation_name,
+                            'error': str(e),
+                            'error_type': type(e).__name__,
+                            'category': error_category.value
+                        },
+                        exc_info=True
                     )
                     raise e
                 
                 # Calculate delay and wait
                 delay = self._calculate_delay(error_category, attempt)
-                self.logger.info(f"Retrying {operation_name} in {delay:.2f} seconds...")
+                log_retry_attempt(self.logger, operation_name, attempt + 1, delay)
                 
                 time.sleep(delay)
 
         # If we get here, all retries were exhausted
-        self.logger.error(f"{operation_name} failed after {self.config.max_retries} retries")
+        self.logger.error(f"{operation_name} failed after {self.config.max_retries} retries", {
+            'operation': operation_name,
+            'retries': self.config.max_retries
+        }, exc_info=True)
         raise last_exception
-    
+
     def _categorize_error(self, error: Exception) -> ErrorCategory:
         """
         Categorize errors to determine retry strategy.
@@ -147,9 +162,9 @@ class ErrorHandler:
                 return ErrorCategory.BUSINESS_LOGIC
         
         # Default for unknown errors
-        self.logger.warning(f"Unknown error type: {type(error).__name__}: {error}")
+        self.logger.warning(f"Unknown error type: {type(error).__name__}", data={'error': str(error)})
         return ErrorCategory.UNKNOWN
-    
+
     def _should_retry(self, error_category: ErrorCategory, attempt: int) -> bool:
         """
         Determine if we should retry based on error type and attempt number.
@@ -182,7 +197,7 @@ class ErrorHandler:
             return attempt == 0
         
         return False
-    
+
     def _calculate_delay(self, error_category: ErrorCategory, attempt: int) -> float:
         """
         Calculate how long to wait before the next retry.
@@ -248,3 +263,5 @@ class ErrorHandler:
                 'duration': time.time() - start_time,
                 'context': context
             }
+    
+    
