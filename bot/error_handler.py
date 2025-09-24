@@ -1,6 +1,6 @@
 import time
 import logging
-from typing import Callable, Any, Dict, Optional, Type
+from typing import Callable, Any, Dict, Optional
 from functools import wraps
 from enum import Enum
 import random
