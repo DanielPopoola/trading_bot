@@ -103,7 +103,6 @@ class BinanceAPIClient:
             else: # LIMIT and other order types
                 result = self.client.futures_create_order(**order_data)
 
-
             # Calculate API call duration
             duration = time.time() - start_time
             
