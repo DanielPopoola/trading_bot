@@ -216,15 +216,25 @@ class InputValidator:
         if not filters or 'MIN_NOTIONAL' not in filters:
             return
 
-        min_notional_filter = filters['MIN_NOTIONAL']
-        min_notional = Decimal(min_notional_filter['notional'])
+        min_notional_filter = filters.get('MIN_NOTIONAL')
+        max_notional_filter = filters.get('MAX_NOTIONAL')
 
         notional_value = quantity * price
 
-        if notional_value < min_notional:
-            raise ValidationError(
-                f"Order notional value ({notional_value}) is below the minimum of {min_notional} for {symbol}."
-            )
+        if min_notional_filter:
+            min_notional = Decimal(min_notional_filter['notional'])
+            if notional_value < min_notional:
+                raise ValidationError(
+                    f"Order notional value ({notional_value.quantize(Decimal('0.0001'))} USDT) is below the minimum of {min_notional.quantize(Decimal('0.0001'))} USDT for {symbol}."
+                )
+
+        if max_notional_filter:
+            max_notional = Decimal(max_notional_filter['notional'])
+            if notional_value > max_notional:
+                raise ValidationError(
+                    f"Order notional value ({notional_value.quantize(Decimal('0.0001'))} USDT) is above the maximum of {max_notional.quantize(Decimal('0.0001'))} USDT for {symbol}."
+                )
+        
     
     def _validate_symbol_exists(self, symbol: str) -> None:
         """
