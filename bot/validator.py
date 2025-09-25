@@ -17,6 +17,7 @@ class InputValidator:
         self.api_client = api_client
         self.logger = ContextLogger('bot.validator')
         self._valid_symbols: Optional[Set[str]] = None
+        self._symbol_filters: Dict[str, Any] = {}
         self._symbol_pattern = re.compile(r'^[A-Z0-9]{6,12}')
         
         # Decimal precision settings for financial calculations
@@ -51,6 +52,9 @@ class InputValidator:
         # Business rule validation
         if self.api_client:
             self._validate_symbol_exists(validated_params['symbol'])
+            if 'price' in validated_params:
+                self._validate_price_range(validated_params['symbol'], validated_params['price'])
+                self._validate_notional_value(validated_params['symbol'], validated_params['quantity'], validated_params['price'])
             self._validate_sufficient_balance(validated_params)
         
         return validated_params
@@ -178,6 +182,49 @@ class InputValidator:
         )
         
         return rounded_price
+
+    def _validate_price_range(self, symbol: str, price: Decimal) -> None:
+        """Validate price against the symbol's price filter."""
+        filters = self._symbol_filters.get(symbol)
+        if not filters or 'PRICE_FILTER' not in filters:
+            return
+
+        price_filter = filters['PRICE_FILTER']
+        min_price = Decimal(price_filter['minPrice'])
+        max_price = Decimal(price_filter['maxPrice'])
+        tick_size = Decimal(price_filter['tickSize'])
+
+        if price < min_price:
+            raise ValidationError(
+                f"Price {price} is below the minimum allowed price of {min_price} for {symbol}."
+            )
+
+        if max_price > 0 and price > max_price:
+            raise ValidationError(
+                f"Price {price} is above the maximum allowed price of {max_price} for {symbol}."
+            )
+
+        # Check if the price conforms to the tick size
+        if (price - min_price) % tick_size != Decimal(0):
+            raise ValidationError(
+                f"Price {price} does not meet the tick size of {tick_size} for {symbol}."
+            )
+
+    def _validate_notional_value(self, symbol: str, quantity: Decimal, price: Decimal) -> None:
+        """Validate the notional value of the order."""
+        filters = self._symbol_filters.get(symbol)
+        if not filters or 'MIN_NOTIONAL' not in filters:
+            return
+
+        min_notional_filter = filters['MIN_NOTIONAL']
+        min_notional = Decimal(min_notional_filter['notional'])
+
+        notional_value = quantity * price
+
+        if notional_value < min_notional:
+            raise ValidationError(
+                f"Order notional value ({notional_value}) is below the minimum of {min_notional} for {symbol}."
+            )
     
     def _validate_symbol_exists(self, symbol: str) -> None:
         """
@@ -200,12 +247,12 @@ class InputValidator:
             self.logger.info("Loading valid symbols from Binance...")
             exchange_info = self.api_client.get_exchange_info()
             
-            # Extract active trading symbols
-            self._valid_symbols = {
-                symbol['symbol'] 
-                for symbol in exchange_info['symbols'] 
-                if symbol['status'] == 'TRADING'
-            }
+            self._valid_symbols = set()
+            for symbol_data in exchange_info['symbols']:
+                if symbol_data['status'] == 'TRADING':
+                    symbol = symbol_data['symbol']
+                    self._valid_symbols.add(symbol)
+                    self._symbol_filters[symbol] = {f['filterType']: f for f in symbol_data['filters']}
             
             self.logger.info(f"Loaded {len(self._valid_symbols)} valid symbols", {'count': len(self._valid_symbols)})
             
