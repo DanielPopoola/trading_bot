@@ -42,8 +42,6 @@ Examples:
         parser.add_argument('--price', type=float, help='Price for limit orders')
         
         # Optional parameters
-        parser.add_argument('--testnet', action='store_true', default=True,
-                          help='Use testnet (default: True)')
         parser.add_argument('--interactive', action='store_true',
                           help='Force interactive mode')
         
@@ -93,7 +91,6 @@ Examples:
             'side': args.side.lower(),
             'quantity': args.quantity,
             'order_type': args.type.lower(),
-            'testnet': args.testnet
         }
         
         # Add optional parameters
@@ -118,7 +115,6 @@ Examples:
                 'side': side,
                 'quantity': quantity,
                 'order_type': order_type,
-                'testnet': True  # Always use testnet for safety
             }
 
             # Get order-type specific parameters
