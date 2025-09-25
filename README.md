@@ -138,8 +138,6 @@ trading-bot/
 |----------|-------------|---------|----------|
 | `BINANCE_API_KEY` | Your Binance Futures Testnet API Key | None | Yes |
 | `BINANCE_API_SECRET` | Your Binance Futures Testnet API Secret | None | Yes |
-| `LOG_LEVEL` | Logging level | `INFO` | No |
-| `LOG_DIRECTORY` | Log files directory | `logs` | No |
 
 ### Retry Configuration
 
@@ -187,11 +185,6 @@ python -m pytest tests/ -v
 Run specific test:
 ```bash
 python -m pytest tests/test_validator.py -v
-```
-
-Test API connection:
-```bash
-python -c "from bot.api_client import BinanceAPIClient; client = BinanceAPIClient('key', 'secret')"
 ```
 
 ## 🔍 Troubleshooting
