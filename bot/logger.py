@@ -227,7 +227,7 @@ class ContextLogger:
         if context:
             # Use the 'extra' parameter to pass structured data
             record = self.logger.makeRecord(
-                self.logger.name(), getattr(logging, level.upper()),
+                self.logger.name, getattr(logging, level.upper()),
                 '', 0, message, (), None
             )
             record.extra_data = context

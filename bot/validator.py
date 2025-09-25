@@ -17,7 +17,7 @@ class InputValidator:
         self.api_client = api_client
         self.logger = ContextLogger('bot.validator')
         self._valid_symbols: Optional[Set[str]] = None
-        self._symbol_pattern = re.compile(r'^[A-Z0-9]{6,12})
+        self._symbol_pattern = re.compile(r'^[A-Z0-9]{6,12}')
         
         # Decimal precision settings for financial calculations
         self.quantity_precision = 8

@@ -54,7 +54,7 @@ class ErrorHandler:
         """
         def decorator(func: Callable) -> Callable:
             @wraps(func)
-            def wrapper(*args, *kwargs):
+            def wrapper(*args, **kwargs):
                 return self._execute_with_retry(func, operation_name, *args, **kwargs)
             return wrapper
         return decorator
