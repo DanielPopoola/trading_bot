@@ -1,6 +1,6 @@
 from .base import OrderStrategy
 from typing import Any, Dict
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 
 class LimitOrderStrategy(OrderStrategy):
@@ -26,7 +26,7 @@ class LimitOrderStrategy(OrderStrategy):
         if not isinstance(price, Decimal):
             try:
                 price = Decimal(str(price))
-            except (ValueError, TypeError):
+            except (ValueError, TypeError, InvalidOperation):
                 raise ValueError("Price must be a valid number")
         
         if price <= 0:
