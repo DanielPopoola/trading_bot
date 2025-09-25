@@ -15,8 +15,8 @@ class Config:
         self._load_environment()
         
         # API Configuration
-        self.api_key = os.getenv('BINANCE_API_KEY')
-        self.api_secret = os.getenv('BINANCE_API_SECRET')
+        self.api_key = os.getenv('BINANCE_API_KEY', 'your_api_key_here')
+        self.api_secret = os.getenv('BINANCE_API_SECRET', 'your_api_secret_here')
         
         if not self.api_key or not self.api_secret:
             raise ValueError(
@@ -43,7 +43,7 @@ class Config:
             if parent_env.exists():
                 load_dotenv(parent_env)
     
-    def get_api_credentials(self) -> Dict[str, str]:
+    def get_api_credentials(self) -> Any:
         """Get API credentials."""
         return {
             'api_key': self.api_key,
