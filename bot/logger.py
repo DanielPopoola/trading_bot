@@ -5,6 +5,14 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 from pathlib import Path
 import traceback
+from decimal import Decimal
+
+class CustomJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Decimal):
+            return str(obj)
+        return super().default(obj)
+
 
 
 class JSONFormatter(logging.Formatter):
@@ -41,7 +49,7 @@ class JSONFormatter(logging.Formatter):
         if hasattr(record, 'extra_data'):
             log_entry['data'] = record.extra_data
 
-        return json.dumps(log_entry, ensure_ascii=False)
+        return json.dumps(log_entry, ensure_ascii=False, cls=CustomJSONEncoder)
     
 
 class TradingBotLogger:
@@ -279,15 +287,20 @@ def setup_logging(log_directory: str = "logs",
 
 # Utility functions for common logging patterns
 
-def log_order_attempt(logger: ContextLogger, symbol: str, side: str, quantity: str, order_type: str) -> None:
+def log_order_attempt(logger: ContextLogger, symbol: str, side: str, quantity: str, order_type: str, price: Optional[str] = None, timeInForce: Optional[str] = None) -> None:
     """Log order placement attempt with standard format."""
-    logger.info("Attempting to place order", {
+    log_data = {
         'symbol': symbol,
         'side': side,
         'quantity': quantity,
         'order_type': order_type,
         'action': 'order_attempt'
-    })
+    }
+    if price:
+        log_data['price'] = price
+    if timeInForce:
+        log_data['timeInForce'] = timeInForce
+    logger.info("Attempting to place order", log_data)
 
 def log_order_success(logger: ContextLogger, order_result: Dict[str, Any]) -> None:
     """Log successful order placement."""
