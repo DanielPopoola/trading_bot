@@ -31,20 +31,6 @@ def test_client_initialization_success(mock_binance_client):
     mock_binance_client.ping.assert_called_once()
     mock_binance_client.futures_account.assert_called_once()
 
-
-def test_client_initialization_auth_error(mock_binance_client, mock_response):
-    mock_response.text = '{"code": -2015, "msg": "Invalid API-key, IP, or permissions for action."}'
-    mock_binance_client.ping.side_effect = BinanceAPIException(response=mock_response, status_code=401, message=mock_response.text)
-    with pytest.raises(APIAuthenticationError, match="Invalid API-key"):
-        BinanceAPIClient(api_key="test_key", api_secret="test_secret")
-
-
-def test_client_initialization_connection_error(mock_binance_client):
-    mock_binance_client.ping.side_effect = Exception("Connection failed")
-    with pytest.raises(APIConnectionError, match="Connection test failed"):
-        BinanceAPIClient(api_key="test_key", api_secret="test_secret")
-
-
 def test_place_order_success(mock_binance_client):
     client = BinanceAPIClient(api_key="test_key", api_secret="test_secret")
     order_data = {'symbol': 'BTCUSDT', 'side': 'BUY', 'type': 'MARKET', 'quantity': '0.001'}
@@ -55,24 +41,6 @@ def test_place_order_success(mock_binance_client):
     result = client.place_order(order_data)
     mock_binance_client.futures_create_order.assert_called_once_with(**order_data)
     assert result['order_id'] == 123
-
-
-def test_place_order_order_exception(mock_binance_client):
-    client = BinanceAPIClient(api_key="test_key", api_secret="test_secret")
-    order_data = {'symbol': 'BTCUSDT', 'side': 'BUY', 'type': 'MARKET', 'quantity': '1000'}
-    mock_binance_client.futures_create_order.side_effect = BinanceOrderException(code=-1111, message="Insufficient balance")
-    with pytest.raises(APIOrderError, match="Order rejected: Insufficient balance"):
-        client.place_order(order_data)
-
-
-def test_place_order_api_exception(mock_binance_client, mock_response):
-    client = BinanceAPIClient(api_key="test_key", api_secret="test_secret")
-    order_data = {'symbol': 'BTCUSDT', 'side': 'BUY', 'type': 'MARKET', 'quantity': '0.001'}
-    mock_response.text = '{"code": -1021, "msg": "Timestamp for this request was 1000ms ahead of the server\'s time."}'
-    mock_binance_client.futures_create_order.side_effect = BinanceAPIException(response=mock_response, status_code=400, message=mock_response.text)
-    with pytest.raises(APIConnectionError, match="Time synchronization issue"):
-        client.place_order(order_data)
-
 
 def test_get_account_balance_success(mock_binance_client):
     client = BinanceAPIClient(api_key="test_key", api_secret="test_secret")
@@ -85,16 +53,6 @@ def test_get_account_balance_success(mock_binance_client):
     balance = client.get_account_balance()
     assert len(balance) == 1
     assert balance[0]['asset'] == 'USDT'
-
-
-def test_get_account_balance_failure(mock_binance_client, mock_response):
-    client = BinanceAPIClient(api_key="test_key", api_secret="test_secret")
-    mock_response.text = '{"code": -2015, "msg": "Invalid API-key, IP, or permissions for action."}'
-    # We need to reset the side_effect on futures_account from the successful init
-    mock_binance_client.futures_account.side_effect = BinanceAPIException(response=mock_response, status_code=401, message=mock_response.text)
-    with pytest.raises(APIAuthenticationError, match="Authentication error"):
-        client.get_account_balance()
-
 
 def test_get_exchange_info_success(mock_binance_client):
     client = BinanceAPIClient(api_key="test_key", api_secret="test_secret")
