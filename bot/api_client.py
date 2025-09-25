@@ -149,6 +149,8 @@ class BinanceAPIClient:
                 raise APIOrderError(f"Order rejected by exchange: {e}")
             elif e.code == -4016:
                 raise APIOrderError(f"Limit price is too high. {e}")
+            elif e.code == -4164:
+                raise APIOrderError(f"Order notional is too small. {e}")
             elif e.code == -5007:
                 raise APIOrderError(f"Invalid order quantity: {e}")
             else:
