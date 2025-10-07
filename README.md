@@ -23,7 +23,7 @@ A Python-based trading bot for Binance Futures Testnet that supports market and 
 
 1. **Clone the repository**
    ```bash
-   git clone <repository-url>
+   git clone git@github.com:DanielPopoola/trading_bot.git
    cd trading-bot
    ```
 
